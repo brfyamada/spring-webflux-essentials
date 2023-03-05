@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:9.4
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "postgres"
+      POSTGRES_DB: "anime"
+    ports:
+      - "5432:5432"
+    volumes:
+      - "./docker-init-db-scripts:/docker-entrypont-initdb.d"
+      - "./postgres-data:/var/lib/postgresql/data"
+    networks:
+      - postgres-compose-network
+
+networks:
+  postgres-compose-network:
+    driver: bridge
