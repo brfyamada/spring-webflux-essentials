@@ -11,7 +11,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class AnimeService {
 
-    private AnimeRepository animeRepository;
+    private final AnimeRepository animeRepository;
 
     public Flux<Anime> findAll() {
         return animeRepository.findAll();

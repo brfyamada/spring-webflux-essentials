@@ -18,8 +18,9 @@ import javax.validation.Valid;
 @Slf4j
 public class AnimeController {
 
-    private AnimeService animeService;
+    private final AnimeService animeService;
 
+    @GetMapping
     public Flux<Anime> listAll(){
         return animeService.findAll();
     }
