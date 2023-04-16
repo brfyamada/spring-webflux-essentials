@@ -15,6 +15,12 @@ services:
     networks:
       - postgres-compose-network
 
+  sqs:
+    image: roribio16/alpine-sqs:latest
+    ports:
+      - "9324:9324"
+      - "9325:9325"
+
 networks:
   postgres-compose-network:
     driver: bridge
