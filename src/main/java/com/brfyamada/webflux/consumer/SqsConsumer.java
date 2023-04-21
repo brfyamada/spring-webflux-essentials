@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
@@ -36,9 +37,12 @@ public class SqsConsumer {
 
     private final SqsAsyncClient sqsAsyncClient;
 
+    private final boolean consumeMessage = true;
+
     @Value("${aws.sqs.end-point}")
     private String sqsServiceEndpoint;
-/* Consuming and saving single message example
+
+
     @PostConstruct
     public void continuousListener() {
         Mono<ReceiveMessageResponse> receiveMessageResponseMono = Mono.fromFuture(() ->
@@ -46,68 +50,7 @@ public class SqsConsumer {
                         ReceiveMessageRequest.builder()
                                 .maxNumberOfMessages(5)
                                 .queueUrl(sqsServiceEndpoint)
-                                .waitTimeSeconds(10)
-                                .visibilityTimeout(30)
-                                .build()
-                )
-        );
-
-        receiveMessageResponseMono
-                .repeat()
-                .retry()
-                .map(ReceiveMessageResponse::messages)
-                .map(Flux::fromIterable)
-                .flatMap(messageFlux -> messageFlux)
-                .subscribe(messageToProcess -> {
-                    logger.info("Processing batch message of Animes:  " + messageToProcess.body());
-
-                    try {
-                        this.saveAnimeFromMessage(messageToProcess).log("#### Consuming Message ####")
-                                .doOnError(throwable -> {
-                                    logger.error("Saving Anime from message Process error");
-                                }).doOnSuccess(it -> logger.info("Anime Success: " + it))
-                                .subscribe();
-                    } catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
-                    }
-
-                    sqsAsyncClient.deleteMessage(DeleteMessageRequest.builder().queueUrl(sqsServiceEndpoint).receiptHandle(messageToProcess.receiptHandle()).build())
-                            .thenAccept(deletedMessage -> {
-                                logger.info("message with id {}, processed an deleted successfully" + messageToProcess.messageId());
-                            });
-                });
-    }
-
-    private Mono<List<Anime>> saveAnimeFromMessage(Message message) throws JsonProcessingException {
-
-        ObjectMapper mapper = new ObjectMapper();
-
-        logger.info("Parsing Message to Object Anime List {}",message);
-        List<Anime> animes = mapper.readValue(message.body(), new TypeReference<List<Anime>>(){});
-
-        logger.info("Object parsed:  {}",animes);
-
-        return Flux.just(animes)
-                .flatMap(animeRepository::saveAll)
-                .doOnError(throwable -> {
-                    logger.error("Execution Error");
-                }).doOnComplete( () -> {
-                    logger.info("[SqsConsumer] Anime saved: {}",animes);
-                })
-                .then(Mono.just(animes));
-    }
-
-
- */
-
-    @PostConstruct
-    public void continuousListener() {
-        Mono<ReceiveMessageResponse> receiveMessageResponseMono = Mono.fromFuture(() ->
-                sqsAsyncClient.receiveMessage(
-                        ReceiveMessageRequest.builder()
-                                .maxNumberOfMessages(10)
-                                .queueUrl(sqsServiceEndpoint)
-                                .waitTimeSeconds(10)
+                                .waitTimeSeconds(20)
                                 .visibilityTimeout(30)
                                 .build()
                 )
@@ -118,32 +61,31 @@ public class SqsConsumer {
                 .retry()
                 .map(ReceiveMessageResponse::messages)
                 .subscribe(messageToProcess -> {
-                    if(messageToProcess.size() == 0){
+                    if(messageToProcess.size() == 0 || !consumeMessage){
                         return;
                     }
                     logger.info("Processing batch message of Animes, size:  " + messageToProcess.size());
 
                     try {
-                        this.saveBathAnimeFromMessage(messageToProcess).log("#### Consuming Message ####")
+                        this.saveBathAnimeFromMessage(messageToProcess)
                                 .doOnError(throwable -> {
                                     logger.error("Saving Anime from message Process error");
-                                }).doOnSuccess(it -> logger.info("Anime Success: " + it))
+                                }).doOnSuccess(it -> {
+                                    logger.info("Anime Success: " + it);
+                                })
                                 .subscribe();
                     } catch (JsonProcessingException e) {
                         throw new RuntimeException(e);
                     }
-
-                    messageToProcess.forEach(it -> {
-                        sqsAsyncClient.deleteMessage(DeleteMessageRequest.builder().queueUrl(sqsServiceEndpoint).receiptHandle(it.receiptHandle()).build())
+                    messageToProcess.forEach(msg -> {
+                        sqsAsyncClient.deleteMessage(DeleteMessageRequest.builder().queueUrl(sqsServiceEndpoint).receiptHandle(msg.receiptHandle()).build())
                                 .thenAccept(deletedMessage -> {
-                                    logger.info("message with id {}, processed an deleted successfully" + it.messageId());
+                                    logger.info("message with id {}, processed an deleted successfully",msg.messageId());
                                 });
-
                     });
-
                 });
     }
-
+    @Transactional
     private Mono<List<Anime>> saveBathAnimeFromMessage(List<Message> messages) throws JsonProcessingException {
 
         ObjectMapper mapper = new ObjectMapper();
@@ -172,7 +114,5 @@ public class SqsConsumer {
                 })
                 .then(Mono.just(animes));
     }
-
-
 
 }

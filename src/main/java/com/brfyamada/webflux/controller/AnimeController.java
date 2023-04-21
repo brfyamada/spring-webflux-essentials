@@ -1,5 +1,6 @@
 package com.brfyamada.webflux.controller;
 
+import com.brfyamada.webflux.Teste;
 import com.brfyamada.webflux.domain.Anime;
 import com.brfyamada.webflux.service.AnimeService;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.aws.messaging.core.QueueMessagingTemplate;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -31,6 +33,8 @@ public class AnimeController {
 
     private final AnimeService animeService;
     private final QueueMessagingTemplate queueMessagingTemplate;
+
+    private final Teste test;
 
     @Value("${aws.sqs.end-point}")
     private String sqsServiceEndpoint;
@@ -59,7 +63,7 @@ public class AnimeController {
         logger.info("SQS- queue Anime - {}, animes");
 
         return Mono.just(animes)
-                .flatMap(anime -> {
+                .map(anime -> {
                     ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
                     try {
                         String json = ow.writeValueAsString(anime);
@@ -70,5 +74,26 @@ public class AnimeController {
                     return Mono.empty();
                 }).thenEmpty(Mono.empty());
     }
+
+    @GetMapping("/test")
+    public Mono<List<String>> test() {
+        return test.test();
+
+    }
+
+    @GetMapping("/sindicato")
+    public Mono<Teste.Sindicato> test2() {
+        return test.test2();
+
+    }
+
+    @GetMapping("/anime")
+    public Flux<Anime> findById(@RequestParam String name){
+        return animeService.findByName(name)
+                .switchIfEmpty(Flux.empty());
+    }
+
+
+
 
 }

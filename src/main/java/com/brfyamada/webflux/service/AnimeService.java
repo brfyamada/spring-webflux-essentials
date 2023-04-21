@@ -24,4 +24,8 @@ public class AnimeService {
     public Mono<Anime> save(Anime anime) {
         return animeRepository.save(anime);
     }
+
+    public Flux<Anime> findByName(String name) {
+        return animeRepository.findByName(name);
+    }
 }
